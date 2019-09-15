@@ -51,3 +51,6 @@ plugins:
 #   - vendor/ruby/
 
 future: true
+
+disqus:
+  shortname: chenluxinblog
