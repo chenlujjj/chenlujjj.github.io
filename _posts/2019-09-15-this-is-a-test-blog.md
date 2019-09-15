@@ -1,5 +1,5 @@
 ---
-layout: post
+layout: single
 title:  "test blog"
 date:   2019-09-15 10:50:00 +0800
 categories: tech

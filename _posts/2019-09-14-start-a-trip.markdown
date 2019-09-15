@@ -1,5 +1,5 @@
 ---
-layout: post
+layout: single
 title:  "开始一段旅程吧"
 date:   2019-09-14 23:43:53 +0800
 categories: life
