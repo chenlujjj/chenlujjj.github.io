@@ -27,7 +27,6 @@ github_username:  chenlujjj
 
 # Build settings
 markdown: kramdown
-theme: minimal-mistakes-jekyll
 paginate: 2
 paginate_path: "/page:num/"
 
@@ -63,7 +62,7 @@ disqus:
 # https://mmistakes.github.io/minimal-mistakes/docs/quick-start-guide/#installing-the-theme
 
 # theme                  : "minimal-mistakes-jekyll"
-# remote_theme           : "mmistakes/minimal-mistakes"
+remote_theme             : "mmistakes/minimal-mistakes@4.16.6"
 minimal_mistakes_skin    : "air" # "air", "aqua", "contrast", "dark", "dirt", "neon", "mint", "plum", "sunrise"
 
 # Site Settings
