@@ -21,18 +21,22 @@ description: >- # this means to ignore newlines until "baseurl:"
   Google search results) and in your feed.xml site description.
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "https://chenlujjj.github.io" # the base hostname & protocol for your site, e.g. http://example.com
+author: Chenlujjj
 twitter_username: chenlujjj
 github_username:  chenlujjj
 
 # Build settings
 markdown: kramdown
 theme: minima
+paginate: 2
+paginate_path: "/posts/page:num/"
 plugins:
   - jekyll-mentions
   - jemoji
   - jekyll-redirect-from
   - jekyll-sitemap
   - jekyll-feed
+  - jekyll-paginate
 
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
