@@ -71,8 +71,8 @@ title_separator          : "|"
 subtitle                 : "" # site tagline that appears below site title in masthead
 name                     : "Chen Luxin"
 repository               : "chenlujjj/chenlujjj.github.io"  # GitHub username/repo-name e.g. "mmistakes/minimal-mistakes"
-teaser                   : "/assets/dog.jpg"  # path of fallback teaser image, e.g. "/assets/images/500x300.png"
-logo                     : "/assets/dog.jpg"  # path of logo image to display in the masthead, e.g. "/assets/images/88x88.png"
+teaser                   : "/assets/images/bg-post.jpg"  # path of fallback teaser image, e.g. "/assets/images/500x300.png"
+logo                     : "/assets/images/morty2.jpg"  # path of logo image to display in the masthead, e.g. "/assets/images/88x88.png"
 masthead_title           : "水月洞天"  # overrides the website title displayed in the masthead, use " " for no title
 breadcrumbs              : true # true, false (default)
 words_per_minute         : 200
