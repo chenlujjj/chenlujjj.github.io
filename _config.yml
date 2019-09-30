@@ -27,7 +27,7 @@ github_username:  chenlujjj
 
 # Build settings
 markdown: kramdown
-paginate: 2
+paginate: 10
 paginate_path: "/page:num/"
 
 # Exclude from processing.
@@ -73,7 +73,7 @@ name                     : "Chen Luxin"
 repository               : "chenlujjj/chenlujjj.github.io"  # GitHub username/repo-name e.g. "mmistakes/minimal-mistakes"
 teaser                   : "/assets/images/bg-post.jpg"  # path of fallback teaser image, e.g. "/assets/images/500x300.png"
 logo                     : "/assets/images/morty2.jpg"  # path of logo image to display in the masthead, e.g. "/assets/images/88x88.png"
-masthead_title           : "水月洞天"  # overrides the website title displayed in the masthead, use " " for no title
+masthead_title           : "Open Mind"  # overrides the website title displayed in the masthead, use " " for no title
 breadcrumbs              : true # true, false (default)
 words_per_minute         : 200
 comments:
@@ -118,7 +118,7 @@ analytics:
 author:
   name             : "Chen Luxin"
   avatar           : "/assets/images/morty.png"  # path of avatar image, e.g. "/assets/images/bio-photo.jpg"
-  bio              : "I am an **amazing** person."
+  bio              : "恰如猛虎卧荒丘"
   location         : "Shanghai, China"
   # email            : "chenlujjj@gmail.com"
   links:
@@ -296,7 +296,7 @@ defaults:
       type: posts
     values:
       layout: single
-      author_profile: true
+      author_profile: false
       read_time: true
       comments: true
       share: true
