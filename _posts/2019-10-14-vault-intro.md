@@ -4,10 +4,13 @@ title:  "Intro to Vault"
 date:   2019-10-14 20:00:00 +0800
 categories: software
 tags: [vault]
+toc: true
+toc_sticky: true
+toc_icon: "fish"
 ---
 
 # 简介
-Vault 是 HashCorp 公司出品的用于各种密码、令牌、证书等管理和存储的软件。
+Vault 是 HashCorp 公司出品的用于管理和存储各种密码、令牌、证书等的软件。
 
 Vault 会把 secret 先加密再存储起来。 存储系统无法获取未加密的值。 存储形式可以是文件、consul、etcd 等。
 
@@ -114,7 +117,7 @@ Vault 提供了 Web UI，CLI 和 HTTP API 的交互形式。
 
 Vault 默认开启了一个类型为 `kv` 的 secrets engine， PATH 是 `secret/`。
 
-除了 kv 外，Vault 还支持多种类型的 secrets engine，包括 AWS， Axure，Consul，Databases 等等，见下图。
+除了 kv 外，Vault 还支持多种类型的 secrets engine，包括 Cubbyhole（默认开启且不能关闭），AWS， Axure，Consul，Databases 等等，见下图。
 
 ![vault-secrets-engines](/assets/images/vault-secrets-engines.png)
 
