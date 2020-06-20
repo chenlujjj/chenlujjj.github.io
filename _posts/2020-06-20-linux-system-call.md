@@ -7,11 +7,11 @@ tags: [os, linux]
 toc: true
 toc_sticky: true
 toc_icon: "fish"
-header:
-  teaser: /assets/images/linux-system-call.png
 ---
 
 《趣谈 Linux 操作系统》专栏第5讲笔记
+
+![Linux 系统调用](/assets/images/linux-system-call.png)
 
 ## 进程管理
 
