@@ -73,6 +73,8 @@ linters-settings:
    # original-url: github.com/golangci/example-linter
 ```
 
+注意，这里的 `path` 可以是绝对路径，也可以是相对于执行 `golangci-lint` 命令时所在目录的路径。
+
 linter 的目录结构可以参考 [example-plugin-linter](https://github.com/golangci/example-plugin-linter) 和 [logwercase](https://github.com/alexisvisco/logwercase)。
 
 
