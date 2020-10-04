@@ -81,3 +81,8 @@ tags: [regex]
 * Negative lookahead: `regex_1(?!regex_2)` asserts `regex_1` *not* to be immediately followed by `regex_2`. Lookahead is excluded from the match (do not consume matches of `regex_2`), but only assert whether a match is possible or not.
 * Positive lookbehind: `(?<=regex_2)regex_1` asserts `regex_1` to be immediately preceded by `regex_2`. Lookbehind is excluded from the match (do not consume matches of `regex_2`), but only assert whether a match is possible or not.
 * Negative lookbehind: `(?<!regex_2)regex_1` asserts `regex_1` *not* to be immediately preceded by `regex_2`. Lookbehind is excluded from the match (do not consume matches of `regex_2`), but only assert whether a match is possible or not.
+
+
+## 补充
+
+* `*?` 表示**非贪婪匹配**，即“尽可能少的匹配”。如 `r\w*?` 对于 r, re, regex 都只会匹配到 r，而 `r\w*` 则会匹配到整个单词。
