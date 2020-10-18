@@ -1,0 +1,43 @@
+---
+layout: single
+title:  "Go Quizzes 101 (3)"
+date:   2020-10-18 21:10:00 +0800
+categories: programming
+tags: [go, go101]
+---
+
+## 题目
+
+[查看原题](https://twitter.com/go100and1/status/1172506251281891328)
+[Play](https://play.golang.org/p/tOmm3AUnvbl)
+
+```go
+package main
+
+func f(n int) (r int) {
+	defer func() {
+		r += n
+		recover()
+	}()
+
+	var f func()
+	defer f()
+	f = func() {
+		r += 2
+	}
+
+	return n + 1
+}
+
+func main() {
+	println(f(3))
+}
+```
+
+## 分析
+
+1. 函数返回值是 4
+2. **延迟调用的函数值也是在此调用被推入延迟调用堆栈时被估值的**，所以 `defer f()` 会 `panic`，并不会执行 `r += 2`
+3. `r += n` 会被执行，并且恐慌会被恢复
+
+所以最终的结果是 4+3=7
