@@ -151,6 +151,9 @@ tags: [system design]
 
 当请求数很高时，负载均衡本身也可能成为瓶颈和单点故障。我们可以使用基于 **DNS 的负载均衡**，将不同域名的请求导向不同的机器。
 
+阅读材料：
+* [What Is DNS Load Balancing?](https://www.nginx.com/resources/glossary/dns-load-balancing/)
+
 ### 扩展（scaling）数据库
 
 数据量越来越大时，需要考虑做 partition/sharding。
