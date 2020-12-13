@@ -4,6 +4,9 @@ title:  "[笔记] Practical Go: Real world advice for writing maintainable Go pr
 date:   2020-12-13 21:00:00 +0800
 categories: go
 tags: [go]
+toc: true
+toc_sticky: true
+toc_icon: "fish"
 ---
 
 [原文链接](https://dave.cheney.net/practical-go/presentations/qcon-china.html)
