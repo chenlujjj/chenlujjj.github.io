@@ -128,3 +128,97 @@ BenchmarkSum-12    	 6184479	       182 ns/op	     896 B/op	       1 allocs/op
 
 
 ### 内联（Inlining）
+在Go中函数调用是有开销（overhead）的。内联是一种避免这些开销的经典优化方法。
+在Go 1.11 之前，内联只作用于**叶子函数（leaf function）**上。叶子函数是指不会调用其他函数的函数。这么做的原因是：
+* 如果是做了很多事情的“大”函数，那么它的前导开销可以忽略不计
+* 而对于小函数来说，开销相对于它所做的工作是比较大的。对其使用内联，收益大些
+
+#### 举例
+```go
+package main
+
+// START OMIT
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func F() {
+	const a, b = 100, 20
+	if Max(a, b) == b {
+		panic(b)
+	}
+}
+
+// END OMIT
+
+func main() {
+	F()
+}
+```
+如前文一般，使用`-gcflags=-m`来查看编译器的优化动作：
+```shell
+$ go build -gcflags="-m" max.go
+# command-line-arguments
+./max.go:4:6: can inline Max
+./max.go:11:6: can inline F
+./max.go:13:8: inlining call to Max
+./max.go:20:6: can inline main
+./max.go:21:3: inlining call to F
+./max.go:21:3: inlining call to Max
+```
+可见，函数F和Max都被内联处理了。
+
+#### 内联长啥样
+查看函数F():
+```shell
+$ go build -gcflags="-S" max.go  2>&1 | grep -A5 '"".F STEXT'
+"".F STEXT nosplit size=1 args=0x0 locals=0x0
+	0x0000 00000 (/Users/chenluxin/Codes/go/high-performance-go-workshop/03-compiler-optimisations/examples/max/max.go:11)	TEXT	"".F(SB), NOSPLIT|ABIInternal, $0-0
+	0x0000 00000 (/Users/chenluxin/Codes/go/high-performance-go-workshop/03-compiler-optimisations/examples/max/max.go:11)	FUNCDATA	$0, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+	0x0000 00000 (/Users/chenluxin/Codes/go/high-performance-go-workshop/03-compiler-optimisations/examples/max/max.go:11)	FUNCDATA	$1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+	0x0000 00000 (/Users/chenluxin/Codes/go/high-performance-go-workshop/03-compiler-optimisations/examples/max/max.go:13)	RET
+	0x0000 c3                                               .
+```
+忽略FUNCDATA和PCDATA，可见函数F()最终变成了：
+```go
+func F() {
+        return
+}
+```
+
+#### 讨论
+如果在函数F()中，把a和b声明为变量而非常量，或者a和b被当做参数传递给F()，结果会有变化吗？
+实验结果是，两种情况下，Max和F函数都会被内联处理。但是在第二种情况中，打印出的汇编语句不一样了：
+```
+"".F STEXT size=103 args=0x10 locals=0x18
+	0x0000 00000 (/Users/chenluxin/Codes/go/high-performance-go-workshop/03-compiler-optimisations/examples/max/max.go:11)	TEXT	"".F(SB), ABIInternal, $24-16
+	0x0000 00000 (/Users/chenluxin/Codes/go/high-performance-go-workshop/03-compiler-optimisations/examples/max/max.go:11)	MOVQ	(TLS), CX
+	0x0009 00009 (/Users/chenluxin/Codes/go/high-performance-go-workshop/03-compiler-optimisations/examples/max/max.go:11)	CMPQ	SP, 16(CX)
+	0x000d 00013 (/Users/chenluxin/Codes/go/high-performance-go-workshop/03-compiler-optimisations/examples/max/max.go:11)	PCDATA	$0, $-2
+	0x000d 00013 (/Users/chenluxin/Codes/go/high-performance-go-workshop/03-compiler-optimisations/examples/max/max.go:11)	JLS	96
+```
+
+#### 调整内联级别
+通过`-gcflags=-l`来调整内联级别。
+* `-gcflags=-l`, 禁用内联
+* `-gcflags='-l -l'` 内联级别 2，更激进，可能更快，可能会生成更大的二进制文件
+* `-gcflags='-l -l -l'` 内联 3 级，更加激进，二进制文件肯定更大，也许会更快，但也可能带来问题
+* `-gcflags=-l=4` 将启用实验性的**中栈内联**（mid stack inlining optimisation）
+
+从Go 1.12 开始，默认开启上述的中栈内联。在上个例子中，F()函数严格意义上来说并不是叶子函数，却也被内联了。这是因为，当Max函数内联到F后，F函数中没有其他函数调用，也变成了叶子函数。
+
+### 消除无效代码（Dead code elimination）
+在前一个例子中，为什么要强调a和b是常量呢？因为这种情况下，编译器就能通过内联和一系列**分支消除（branch elimination）**操作，将F函数最终变为：
+```go
+func F() {
+}
+```
+消除无效代码是指一类优化方法，分支消除是其中之一。这里**无效（dead）**的含义是指永远不会被执行到，因此这些代码不必编译，也不会包含在最终的二进制文件中。
+
+一个利用分支消除的例子：
+声明一个debug布尔常量：`const debug = false`，再将debug有关的逻辑放在条件语句块中，只有debug为true时才会执行。这样，当debug为false时，这些代码不会被编译到二进制文件中。
+
+
