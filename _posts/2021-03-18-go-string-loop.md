@@ -46,7 +46,7 @@ func main() {
 	fmt.Println()
 	fmt.Println([]rune(s))
 	for i, c := range s {
-		fmt.Printf("type: %v -- %c (%#U) starts at byte position %d\n", reflect.TypeOf(c), c, c, i)
+		fmt.Printf("type: %v -- %d %c (%U) starts at byte position %d\n", reflect.TypeOf(c), c, c, c, i)
 	}
 }
 
@@ -57,10 +57,10 @@ func main() {
 // uint8
 // e4 bd a0 e5 a5 bd e4 b8 96 e7 95 8c 
 // [20320 22909 19990 30028]
-// type: int32 -- 你 (U+4F60 '你') starts at byte position 0
-// type: int32 -- 好 (U+597D '好') starts at byte position 3
-// type: int32 -- 世 (U+4E16 '世') starts at byte position 6
-// type: int32 -- 界 (U+754C '界') starts at byte position 9
+// type: int32 -- 20320 你 (U+4F60 '你') starts at byte position 0
+// type: int32 -- 22909 好 (U+597D '好') starts at byte position 3
+// type: int32 -- 19990 世 (U+4E16 '世') starts at byte position 6
+// type: int32 -- 30028 界 (U+754C '界') starts at byte position 9
 ```
 
 注：
