@@ -10,9 +10,9 @@ source "https://rubygems.org"
 # Happy Jekylling!
 gem "jekyll", "~> 3.8.5"
 
-gem "nokogiri", ">= 1.10.8"
+gem "nokogiri", ">= 1.11.0"
 gem "rubyzip", ">= 1.3.0"
-
+gem "kramdown", ">= 2.3.0"
 # This is the default theme for new Jekyll sites. You may change this to anything you like.
 # gem "minima", "~> 2.0"
 # gem "minimal-mistakes-jekyll"
