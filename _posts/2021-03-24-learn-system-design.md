@@ -58,9 +58,150 @@ AP（可用性和分区容错性）：响应返回的是在任意节点上可用
 
 如果业务需求允许**最终一致性**，或要求系统能够在有外部故障时继续运行，AP 是一个不错的选择。
 
-* [ ] 阅读文章 [CAP theorem revisited](https://robertgreiner.com/cap-theorem-revisited/)
+* [X] ~~*阅读文章 [CAP theorem revisited](https://robertgreiner.com/cap-theorem-revisited/)*~~ [2021-03-29]
 * [X] ~~*阅读文章（非常通俗易懂的解释，推荐） [A plain english introduction to CAP theorem](http://ksat.me/a-plain-english-introduction-to-cap-theorem)*~~ [2021-03-25]
-* [ ] 常见问题解答 [CAP FAQ](https://github.com/henryr/cap-faq)
+* [X] ~~*常见问题解答 [CAP FAQ](https://github.com/henryr/cap-faq)*~~ [2021-03-29]
 * [X] ~~*视频 [The CAP theorem](https://www.youtube.com/watch?v=k-Yaq8AHlFA)*~~ [2021-03-25]
 
 > 使用多地ATM机器的例子来解释CAP理论，还提到了部分可用性的概念。
+
+* [ ] [对CAP理论的简要证明](https://mwhittaker.github.io/blog/an_illustrated_proof_of_the_cap_theorem/)
+
+## Consistency patterns
+
+### Weak consistency
+
+在数据写入后，读取操作可能看得到，也可能看不到写入的数据。
+
+memcached 使用的就是这种方式。弱一致性在一些实时应用场景中，如视频通话、实时多人游戏等，工作得很好。
+
+### Eventual consistency
+
+在数据写入后，读取操作**最终**可以看得到写入的数据（往往在若干毫秒内）。数据被**异步复制**。
+
+DNS和邮件系统使用这种方式。最终一致性在高可用系统中工作得很好。
+
+### Strong consistency
+
+在数据写入后，读取操作立刻可以看得到写入的数据。数据被**同步复制**。
+
+文件系统和关系型数据库使用这种方式。强一致性在需要保证**事务**的系统中工作得很好。
+
+延伸阅读
+
+* [ ] [Transactions across data centers](https://snarfed.org/transactions_across_datacenters_io.html)
+
+
+## Availability patterns
+
+有两种模式来支撑高可用：fail-over（故障切换）和replication（复制）。
+
+### Fail-over
+
+#### Active-passive
+
+工作-备用故障切换：
+
+* 工作机器和待机的备用机器间会发送心跳。当心跳中断时，备用机替代工作机，恢复服务
+* 宕机时间是由备用机处在“热”待机状态还是需要从“冷”待机状态启动而决定的
+* 只有工作机器处理流量
+* 工作-备用故障切换也被称作**主从切换**（master-slave failover）
+
+#### Active-active
+
+双工作切换：
+
+* 两台工作机都处理流量，分摊负载
+* 也被称作**主主切换**（master-master failover）
+
+#### failover的缺点
+
+* 增加了更多硬件资源和额外的复杂度
+* 如果在写入数据被复制到备用机前，工作机就宕机了，数据会有丢失的风险
+
+
+### Replication
+
+包括主从复制和主主复制，这在后面的数据库部分会讲到。
+
+### Availability in numbers
+
+可用性通常用“几个9”来描述，例如99.99%就叫做“四个9”，对应一年的宕机时间要小于53min。
+
+## Domain name system
+
+
+## Content delivery network
+
+### Push CDNs
+
+### Pull CDNs
+
+
+## Load Balancer
+
+### Active-passive
+
+### Active-active
+
+### Layer 4 load balancing
+
+### Layer 7 load balancing
+
+### Horizontal scaling
+
+## Reverse proxy (web server)
+
+### Load balancer vs reverse proxy
+
+## Appllicaton layer
+
+### Microservices
+
+### Service discovery
+
+## Database
+
+### RDBMS
+
+#### Master-slave replication
+
+#### Master-master replication
+
+#### Federation
+
+#### Sharding
+
+#### Denormalization
+
+#### SQL tuning
+
+### NoSQL
+
+#### Key-value store
+
+#### Document store
+
+#### Wide column store
+
+#### Graph Database
+
+### SQL or NoSQL
+
+## Cache
+
+## Asynchronism
+
+## Communication
+
+### TCP
+
+### UDP
+
+### RPC
+
+### REST
+
+## Security
+
+## Appendix
