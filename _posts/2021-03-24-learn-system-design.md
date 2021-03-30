@@ -130,19 +130,62 @@ DNS和邮件系统使用这种方式。最终一致性在高可用系统中工�
 
 ## Domain name system
 
+DNS 将域名转换为IP地址。
+DNS是分层的。
+
+* NS 记录（域名服务） ─ 指定解析域名或子域名的 DNS 服务器
+* MX 记录（邮件交换） ─ 指定接收信息的邮件服务器
+* A 记录（地址） ─ 指定域名对应的 IP 地址 （A是指Address）
+* CNAME（规范） ─ 将一个域名映射到另一个域名或 CNAME 或 A 记录 （C是指Canonical）
+
+
+一些DNS服务可以通过几种方式路由流量：
+
+* 加权轮询调度
+  * 放置流量进入处于维护中的服务器
+  * 在不同大小的集群之间做到平衡
+  * A/B测试
+* 基于延迟的调度
+* 基于地理位置的调度
+
+**延伸阅读**：
+
+* [ ] [DNS architecture](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2008-R2-and-2008/dd197427(v=ws.10)?redirectedfrom=MSDN)
+* [ ] 系列文章，可供查阅 [DNS articles](https://support.dnsimple.com/categories/dns/)
 
 ## Content delivery network
 
+CDN 由分布在世界各地的代理服务器组成，它从靠近用户的位置提供内容。通常，HTML/CSS/JS，图片和视频等静态内容由 CDN 提供。当然，也有一些CDN能够过支持动态内容。DNS 解析会告知客户端连接哪台服务器。
+
+CDN 可以从以下两方面提高性能:
+
+* 用户从近距离的数据中心获取内容
+* 服务器不用处理那些由CDN完成的请求
+
+
 ### Push CDNs
 
+每当你的服务器上有变动时，Push CDN都要接收新的内容。你负责提供内容，上传到CDN，改写URL将其指向CDN。你可以配置内容什么时候过期和什么时候更新。只有新内容或者有变更时，内容才会被上传，所以这种方式最小化了流量，但是最大化了存储。
+
+小流量的站点，或者是内容更新不频繁的站点，适合使用push CDN。（试想一下，对于大流量或者更新频繁的网站，如果还使用push CDN的话，将内容同步到CDN就变成了一份沉重的负担）
+
 ### Pull CDNs
+
+当第一个用户请求内容时，Pull CDN从你的服务器上获取新的内容。你改写URL，将其指向CDN。这会导致更慢的请求速度，直到内容在CDN上缓存好了为止。
+
+TTL决定了内容被缓存多久。Pull CDN最小化了存储空间，但是带来了流量的浪费——如果内容过期了，但是实际上没有变化，也要从主服务器上再拉取一次。
+
+大流量的站点适合使用 pull CDN，因为这样一来只有最近被请求的内容才会存放在CDN上，流量更均匀地分配。
+
+
+**延伸阅读**
+
+* [ ] 论文[Globally distributed content delivery](https://figshare.com/articles/journal_contribution/Globally_distributed_content_delivery/6605972)
+* [X] ~~*博客[The Differences Between Push And Pull CDNs](http://www.travelblogadvice.com/technical/the-differences-between-push-and-pull-cdns/)*~~ [2021-03-31]
 
 
 ## Load Balancer
 
-### Active-passive
-
-### Active-active
 
 ### Layer 4 load balancing
 
@@ -163,6 +206,15 @@ DNS和邮件系统使用这种方式。最终一致性在高可用系统中工�
 ## Database
 
 ### RDBMS
+
+关系型数据库**事务**的特点是 ACID：
+
+* Atomicity 原子性：事务里的操作要么全部完成，要么全部不完成
+* Consistency 一致性：任何事务都是将数据库从一个有效状态转换为另一个有效状态
+* Isolation 隔离性：事务并发执行和顺序执行，结果都是一样 （事务之间是相互隔离的）
+* Durability 持久性：事务提交后，对数据库的修改是永久的，即使系统故障也不会丢失
+
+有多种技术来扩展关系型数据库：**主从复制，主主复制，联邦，分片，非规范化和SQL调优**。
 
 #### Master-slave replication
 
