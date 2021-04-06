@@ -246,13 +246,62 @@ TTL决定了内容被缓存多久。Pull CDN最小化了存储空间，但是带
 
 ## Communication
 
-### TCP
+### Transimission control protocol(TCP)
 
-### UDP
+TCP 是在IP层上的**面向连接**的协议。通过握手来建立和终止连接。
+它能够把保证发送的所有数据包不损坏的、以原始顺序到达目的地。这是通过以下两点做到的：
 
-### RPC
+* 每个数据包的序列号和校验码
+* 确认（ACK）包和自动重传
 
-### REST
+如果发送者没有收到正确的响应，它将重新发送数据包。如果多次超时，连接就会断开。
+TCP 实行**流量控制**和**拥塞控制**。这些措施会导致延迟，所以TCP的传输效率比 UDP 要低。
+
+TCP 对于需要**高可靠性**但对时效要求没那么严格的应用程序很有用。比如 Web 服务，数据库，SMTP，FTP 和 SSH。
+
+### User datagram protocol(UDP)
+
+TCP和UDP都处在TCP/IP模型中的**传输层**。
+
+UDP 是**无连接**的，是**面向数据报**的。数据报可能会无序地到达终点，或者压根到不了终点。UDP不支持拥塞控制。
+UDP 通常比TCP更高效。
+
+UDP可以**广播**，把数据报发送到子网中的所有设备。
+
+UDP可靠性没有TCP那么高，但是在对**实时性要求高**的场景中可以很好地发挥作用，包括网络电话、视频聊天、流媒体、多人实时游戏等。
+
+UDP被用在DNS和DHCP中。
+
+进阶阅读：
+
+* [ ] [UDP vs. TCP](https://gafferongames.com/post/udp_vs_tcp/)
+* [X] ~~*[Key differences between TCP and UDP protocols](https://www.cyberciti.biz/faq/key-differences-between-tcp-and-udp-protocols/)*~~ [2021-04-06]
+* [X] ~~*[Difference between TCP and UDP?](https://stackoverflow.com/questions/5970383/difference-between-tcp-and-udp)*~~ [2021-04-06]
+
+### Remote procedure call(RPC)
+
+使用RPC可以简化编码：在远程机器上执行命令就像在本地调用一样。
+
+不过RPC通常要比本地调用更慢并且更不可靠。
+
+常用的RPC框架有gRPC，Thrift，Avro。
+
+RPC是一个请求-响应的协议（request-response protocol）。
+
+RPC特点是**暴露行为**。
+
+出于性能考量，RPC常用于**内部通讯**。而遵循REST的HTTP接口常用语公共API。
+
+### Representational state transfer (REST)
+
+REST四要素：
+
+* Identify resources (URI in HTTP) - 不论何种操作，使用相同的URI
+* Change with representations (Verbs in HTTP) - 使用动词、headers和body
+* Self-descriptive error message (status response in HTTP) - 使用状态码表示错误，不要造轮子
+* HATEOAS (HTML interface for HTTP)
+
+REST特点是**暴露数据**，常用于公共的HTTP接口。由于是**无状态**的，REST可以方便地横向扩展。
 
 ## Security
 
