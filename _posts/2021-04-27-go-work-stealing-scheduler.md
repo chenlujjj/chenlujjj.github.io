@@ -27,7 +27,7 @@ Go 有一个M:N的调度器来利用多处理器。在任意时刻，M个gorouti
 
 有两种goroutine队列：全局队列和P的局部队列。每个M应该被分配给一个P。当被阻塞或者在执行系统调用时，P可能没有M。**在任意时刻，最多有 GOMAXPROCS 个P。在任意时刻，每个P只能执行一个M。** 如果需要，调度器可以创建更多个M。
 
-![scheduler-concepts](../assets/images/scheduler-concepts.png)
+![scheduler-concepts](/assets/images/scheduler-concepts.png)
 
 每轮调度做的事情其实就是在寻找一个可执行的goroutine并执行它。在每轮调度过程中，按如下顺序搜寻goroutine：
 
@@ -52,7 +52,7 @@ runtime.schedule() {
 
 当一个新的G被创建或者一个已存在的G变成可运行状态时，它会被推入当前P的可运行goroutine的列表中。当P完成执行G时，它试图将G从该列表中弹出。如果列表为空，P从其他P中随机选择一个，然后从被选中的P的局部队列中窃取一半可运行的goroutine。
 
-![scheduler-stealing](../assets/images/scheduler-stealing.png)
+![scheduler-stealing](/assets/images/scheduler-stealing.png)
 
 在上述例子中，P2找不到可以运行的goroutine。所以，它会随机地选择另一个处理器P1，然后从它的局部队列中窃取三个goroutine。P2能够运行这些goroutine，这就使得调度工作在多个处理器之间被更加公平地分配了。
 
