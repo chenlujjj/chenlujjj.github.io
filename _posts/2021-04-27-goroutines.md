@@ -19,6 +19,8 @@ tags: [go, goroutine, runtime]
 * 创建和销毁的代价：创建、销毁线程的代价较大，因为需要从OS获取资源。而goroutine是由go运行时负责创建和销毁的，这些操作相比起来代价很小。
 * 切换代价：线程是**抢占式（preemptively）**调度的，切换过程中需要保存/恢复许多寄存器（16个通用目的的寄存器，程序计数器，栈指针，段寄存器等）。而goroutine是**合作式（cooperatively）**调度的，并不会和OS内核直接交互，当goroutine切换时，仅仅需要保存/恢复少量寄存器，所以代价比起线程小很多。
 
+> 我的注：这里有误。coroutine是协作式的，而goroutine是抢占式的，有10ms的时间片限制，这样是为了避免其他goroutine被饿死。
+
 ### Goroutine 的调度
 
 前面说过，goroutine是合作式调度的。在合作式调度中，没有时间分片的概念。goroutine之间的切换只会在下面这些情况中发生：
