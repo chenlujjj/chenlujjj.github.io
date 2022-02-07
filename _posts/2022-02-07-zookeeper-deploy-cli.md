@@ -48,6 +48,8 @@ admin.serverPort=8081
 
 ## 使用客户端连接ZooKeeper
 
+### zkCli
+
 使用homebrew安装ZooKeeper后，也包含了其客户端命令行工具 zkCli。
 ```shell
 $ zkCli -server 127.0.0.1:2181
@@ -85,5 +87,9 @@ ZNodeValUpdated
 org.apache.zookeeper.KeeperException$NoNodeException: KeeperErrorCode = NoNode for /MyFirstZNode
 ```
 > Tip：在zkCli的shell里输入help可列出所有命令和用法。
+
+关于zkCli的更多使用方法可参看官方文档[ZooKeeper-cli: the ZooKeeper command line interface](https://zookeeper.apache.org/doc/current/zookeeperCLI.html)
+
+### Java SDK
 
 对着教程[Getting Started with Java and Zookeeper](https://www.baeldung.com/java-zookeeper)抄写了几个使用Java SDK对ZNode做CRUD操作的例子，放在代码库 https://github.com/chenlujjj/zookeeper 了，也可算是重新熟悉了一下Java代码和IDE的使用方式。
