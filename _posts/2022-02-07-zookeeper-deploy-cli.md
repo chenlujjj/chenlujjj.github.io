@@ -93,3 +93,5 @@ org.apache.zookeeper.KeeperException$NoNodeException: KeeperErrorCode = NoNode f
 ### Java SDK
 
 对着教程[Getting Started with Java and Zookeeper](https://www.baeldung.com/java-zookeeper)抄写了几个使用Java SDK对ZNode做CRUD操作的例子，放在代码库 https://github.com/chenlujjj/zookeeper 了，也可算是重新熟悉了一下Java代码和IDE的使用方式。
+
+根据官方文档[Useful Tools](https://cwiki.apache.org/confluence/display/ZOOKEEPER/UsefulTools)中的指示，[curator](https://github.com/Netflix/curator)和[zkclient](https://github.com/sgroschupf/zkclient)也是值得一看的Java ZooKeeper Client库。
