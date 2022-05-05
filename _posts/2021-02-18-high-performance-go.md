@@ -633,15 +633,259 @@ examples/prove/foo.go:5:10: Proved Greater64
 
 ### 3.6. Compiler intrinsics
 
+Go允许我们使用汇编编写函数。这项技术涉及到一个forwarding declared函数——没有函数体的函数和一个对应的汇编函数。
 
+```go
+// decl.go
+package asm
+
+// Add returns the sum of a and b.
+func Add(a int64, b int64) int64
+```
+
+这里声明了一个没有函数体的函数。直接编译会报错：
+
+```bash
+$ go build decl.go
+# command-line-arguments
+./decl.go:4:6: missing function body
+```
+
+然后在该目录下添加汇编文件`add.s`。
+
+```assembly
+TEXT ·Add(SB),$0
+	MOVQ a+0(FP), AX
+	ADDQ b+8(FP), AX
+	MOVQ AX, ret+16(FP)
+	RET
+```
+
+这时候就可以编译了。
+
+不过还有一个问题，汇编函数**不能内联**。这点长期以来被开发者所抱怨。使用汇编要么是为了性能，要么是为了一些Go语言没有暴露的操作，矢量操作，原子操作等。由于不能内联，汇编函数要付出较高的开销。
+
+已经有好几个内联的汇编语法的提案了，但都没有被接受。不过Go添加了*intrinsic functions*作为替代品。
+
+一个 intrinsic function 也是用Go编写的，但是编译器会对其做替换。
+
+有两个包使用了这项特性：
+
+* `math/bits`
+* `sync/atomic`
+
+这些替换是在编译器后端实现的。如果你的计算机架构支持某操作的更快方式，那么它会在编译时透明地替换为对应的指令。
+
+除了生成更高效的代码外，由于intrinsic functions是正经的Go代码，内联也能应用于其上。
+
+#### 3.6.1. Popcnt example
+
+在`math/bits`包中有一系列函数，`OnesCount...`，这些会被编译器识别然后替换为其native的等效体。
+
+```go
+func BenchmarkMathBitsPopcnt(b *testing.B) {
+	var r int
+	for i := 0; i < b.N; i++ {
+		r = bits.OnesCount64(uint64(i))
+	}
+	Result = uint64(r)
+}
+```
+
+将其和手写的popcnt实现做基准测试对比。
+
+```bash
+$ go test -bench=.  ./examples/popcnt-intrinsic/
+goos: darwin
+goarch: amd64
+cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+BenchmarkPopcnt-12              589211250                1.771 ns/op
+BenchmarkMathBitsPopcnt-12      1000000000               0.4987 ns/op
+PASS
+ok      _/Users/chenluxin/Codes/go/high-performance-go-workshop/examples/popcnt-intrinsic       2.268s
+```
+
+可见后者要快上几倍。
+
+#### 3.6.2. Atomic counter example
+
+下面是一个原子计数器的例子。
+
+```go
+package main
+
+import (
+	"sync/atomic"
+)
+
+type counter uint64
+
+func (c *counter) get() uint64 {
+	return atomic.LoadUint64((*uint64)(c))
+}
+func (c *counter) inc() uint64 {
+	return atomic.AddUint64((*uint64)(c), 1)
+}
+func (c *counter) reset() uint64 {
+	return atomic.SwapUint64((*uint64)(c), 0)
+}
+
+var c counter
+
+func f() uint64 {
+	c.inc()
+	c.get()
+	return c.reset()
+}
+
+func main() {
+	f()
+}
+```
+
+由于内联和编译器intrinsics的作用，这段代码会被转化为高效的原生代码。
+
+进阶阅读：
+
+- [Mid-stack inlining in the Go compiler presentation by David Lazar](https://docs.google.com/presentation/d/1Wcblp3jpfeKwA0Y4FOmj63PW52M_qmNqlQkNaLj0P5o/edit#slide=id.p)
+- [Proposal: Mid-stack inlining in the Go compiler](https://github.com/golang/proposal/blob/master/design/19348-midstack-inlining.md)
 
 ### 3.7. Bounds check elimination
 
+Go是一门会做边界检查的语言。这意味着数组和切片的下标操作会被检查来确保在边界范围内。
 
+对于**数组**，这可以在**编译时**完成。
+
+对于**切片**，这必须在**运行时**完成。
+
+```go
+var v = make([]int, 9)
+
+var A, B, C, D, E, F, G, H, I int
+
+func BenchmarkBoundsCheckInOrder(b *testing.B) {
+	var a, _b, c, d, e, f, g, h, i int
+	for n := 0; n < b.N; n++ {
+		a = v[0]
+		_b = v[1]
+		c = v[2]
+		d = v[3]
+		e = v[4]
+		f = v[5]
+		g = v[6]
+		h = v[7]
+		i = v[8]
+	}
+	A, B, C, D, E, F, G, H, I = a, _b, c, d, e, f, g, h, i
+}
+```
+
+> 使用`-gcflags=-s`来对`BenchmarkBoundsCheckInOrder`反汇编。看看每次循环里有多少次边界检查的操作？
+
+```go
+func BenchmarkBoundsCheckOutOfOrder(b *testing.B) {
+	var a, _b, c, d, e, f, g, h, i int
+	for n := 0; n < b.N; n++ {
+		i = v[8]
+		a = v[0]
+		_b = v[1]
+		c = v[2]
+		d = v[3]
+		e = v[4]
+		f = v[5]
+		g = v[6]
+		h = v[7]
+	}
+	A, B, C, D, E, F, G, H, I = a, _b, c, d, e, f, g, h, i
+}
+```
+
+译者尝试后发现不知道咋看汇编（因为不会）。 但是从文章[边界检查消除](https://gfw.go101.org/article/bounds-check-elimination.html)得到启示，使用如下方法查看是否有边界检查操作：
+
+```bash
+$ go test -gcflags="-d=ssa/check_bce/debug=1" bounds_test.go
+# command-line-arguments [command-line-arguments.test]
+./bounds_test.go:13:8: Found IsInBounds
+./bounds_test.go:14:9: Found IsInBounds
+./bounds_test.go:15:8: Found IsInBounds
+./bounds_test.go:16:8: Found IsInBounds
+./bounds_test.go:17:8: Found IsInBounds
+./bounds_test.go:18:8: Found IsInBounds
+./bounds_test.go:19:8: Found IsInBounds
+./bounds_test.go:20:8: Found IsInBounds
+./bounds_test.go:21:8: Found IsInBounds
+./bounds_test.go:32:8: Found IsInBounds
+ok      command-line-arguments  0.435s [no tests to run]
+```
+
+这表明，在`BenchmarkBoundsCheckInOrder`中，循环里每个下标操作都做了边界检查；而在`BenchmarkBoundsCheckOutOfOrder`中，只有第一个下标操作`i = v[8]`做了边界检查，后续操作不必检查了，这也是意料之中的。
 
 #### 3.7.1. Exercises
 
+* 对下表操作的顺序重新排列是否会影响函数的大小？是否会影响函数的速度？
 
+译者答：函数的大小我不知道怎么测量（TODO）。速度可以看基准测试结果。
+
+```bash
+$ go test -bench=. bounds_test.go
+goos: darwin
+goarch: amd64
+cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+BenchmarkBoundsCheckInOrder-12          556275300                2.124 ns/op
+BenchmarkBoundsCheckOutOfOrder-12       678888108                1.820 ns/op
+PASS
+ok      command-line-arguments  2.922s
+```
+
+可见`BenchmarkBoundsCheckOutOfOrder`速度更快一些。这是合理的，毕竟省去了大部分边界检查操作。
+
+* 如果`v`被移入到`Benchmark`函数内部会怎么样？
+
+译者答：修改后测试结果如下。
+
+```bash
+$ go test -bench=. bounds_test.go
+goos: darwin
+goarch: amd64
+cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+BenchmarkBoundsCheckInOrder-12          1000000000               0.5067 ns/op
+BenchmarkBoundsCheckOutOfOrder-12       1000000000               0.4998 ns/op
+PASS
+ok      command-line-arguments  1.530s
+```
+
+可见两个函数速度相近，都比原来快了不少。
+
+```bash
+$ go test -gcflags="-d=ssa/check_bce/debug=1" bounds_test.go
+ok      command-line-arguments  0.648s [no tests to run]
+```
+
+神奇的事情发生了！两个函数都没有边界检查了。这是为什么呢？（TODO：我猜测因为`v`变成了函数内的局部变量，编译器可以确定其长度不小于9，后续的下标操作也就不可能越界。而当`v`是全局变量时无法作此保证。）
+
+* 如果`v`声明为数组，`var v [9]int`，会怎么样？
+
+译者答：测试结果如下。
+
+```bash
+$  go test -bench=. bounds_test.go
+goos: darwin
+goarch: amd64
+cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+BenchmarkBoundsCheckInOrder-12          951649609                1.252 ns/op
+BenchmarkBoundsCheckOutOfOrder-12       877896614                1.269 ns/op
+PASS
+ok      command-line-arguments  2.680s
+```
+
+可见，比声明为切片时要快一些。
+
+```bash
+$ go test -gcflags="-d=ssa/check_bce/debug=1" bounds_test.go
+ok      command-line-arguments  0.883s [no tests to run]
+```
+
+也都没有了边界检查。为什么？（TODO：我猜测是因为数组的长度和容量都是固定的，所以编译时就能知道没有越界了，无需在运行时检查。）
 
 ### 3.8. Compiler flags exercises
 
@@ -652,6 +896,8 @@ go build -gcflags=$FLAGS
 ```
 
 来提供的。
+
+一些常用的flag如下：
 
 * `-S` 打印出被编译的包的汇编
 * `-l` 控制内联的行为
