@@ -201,7 +201,641 @@ profiling benchmark:
 
 
 
-## 2. TODO
+## 2. Performance measurement and profiling
+
+前面的部分里我们看了下对特定的函数做基准测试，这在我们提前知道瓶颈在哪里时是有用的。然而，我们常常会发问
+
+“为什么程序这么慢？”
+
+对**整个**程序做profiling对回答这个问题是有用的。在这个部分中，我们将使用Go内置的profiling工具来对程序内部的操作做调查分析。
+
+### 2.1. pprof
+
+第一个工具是pprof。它是从[Google Perf Tools](https://github.com/gperftools/gperftools)工具集衍生而来的，已经被集成到了Go的运行时。
+
+`pprof`由两部分组成：
+
+* 每个Go程序都有的`runtime/pprof`包
+* 用于分析profiles的`go tool pprof`
+
+### 2.2. Types of profiles
+
+pprof支持几种类型的profiling，我们将讨论这些中的三种：
+
+* CPU profiling
+* 内存 profiling
+* Block （或者blocking）profiling
+* Mutex contention（互斥锁争抢）profiling
+
+#### 2.2.1. CPU profiling
+
+CPU profiling是最常见的profile，也是最显然的。
+
+当CPU profiling开启时，运行时会每**10ms**打断自己，记录当前运行的goroutine的栈追踪（stack trace）。
+
+profile完成后，我们可以对它进行分析来判断“最热”的代码路径。
+
+一个函数在profile中出现的次数越多，这个代码路径在整个运行时中的时间占比就越大。
+
+#### 2.2.2. Memory profiling
+
+内存profiling在发生**堆分配（heap allocation）**时记录栈追踪。
+
+栈分配（stack allocation）被认为是免费的，不会在内存profile中被记录。
+
+内存profiling，就像CPU profiling，是基于采样的。默认地内存profiling在每1000次堆分配中采样1次。这个比例可以修改。
+
+因为内存profiling是基于采样的，并且追踪了未被使用的allocations，所以使用内存profiling来判断程序的整体内存使用是很难的。
+
+> 译注： TODO ：什么叫做“未使用的allocations”？ 是指分配了但没有被使用，所以不会计入内存使用量吗？
+
+作者个人观点：我不认为内存profiling在寻找内存泄漏时是有用的。有更好的方法来查出程序用了多少内存。我们将在后续讨论这个。
+
+#### 2.2.3. Block profiling
+
+Block profiling是Go中比较独特的。
+
+Block profile和CPU profile类似，但是它记录了goroutine在等待共享资源（shared resource）时花费的时间。
+
+这在分析**并发（concurrency）瓶颈**时很有用。
+
+> 译注：由此可知，block是“阻塞”的意思，而不是“块”。
+
+Block profiling可以显示出什么时候大量的goroutines*本可以（could）*运行，但被*阻塞住（blocked）*。Blocking包括了：
+
+* 对一个无缓冲区的channel发送或接收
+* 发送给一个满的channel，从一个空的channel接收
+* 试图`Lock`一个已经被其他goroutine锁住的`sync.Mutex`
+
+Block profiling是一个非常特别的工具。你应该在确认已经消除了所有的CPU和内存使用瓶颈时再使用它。
+
+#### 2.2.4. Mutex profiling
+
+Mutex profiling和Block profiling类似，但它仅仅集中在那些因为互斥锁争抢（mutex contention）而延迟的操作。
+
+Mutex profile不会显示出程序运行了多久，或者什么最耗时。它报告的是在等待锁是花费了多少时间。就像blocking profile一样，它说明了在等待某个资源时花的时间。
+
+换句话说，mutex profile报告了如果锁争抢（lock contention）被移除，能够省去多少时间。
+
+### 2.3. One profile at a time
+
+Profiling不是免费的。
+
+Profiling对程序的性能有着适中，但是明显地影响——尤其是在增加内存profile采样率的时候。
+
+大多数工具不会阻止你一次性开启多种profiles。
+
+> 注意：不要同时开启多种profile。这么做的话，它们之间的相互作用也会被观测到，这会扰乱（throw off）最终结果。
+
+### 2.4. Collecting a profile
+
+Go运行时的profiling接口在`runtime/pprof`包中。`runtime/pprof`是一个非常底层的工具，由于历史原因，对不同种类的profile的接口是不统一的。
+
+我们在前一部分已经看到，pprof profiling 内置在`testing`包中，但是有时候把要profile的代码放在`testing.B`基准测试的上下文中并不方便或者很困难，这时就必须直接用`runtime/pprof`的API。
+
+几年前我写过一个package，使得对一个已存在的应用做profile更简单。
+
+```go
+import "github.com/pkg/profile"
+
+func main() {
+	defer profile.Start().Stop()
+	// ...
+}
+```
+
+我们将在本部分使用这个profile包。晚些时候我们再介绍直接使用`runtime/pprof`的接口。
+
+### 2.5. Analysing a profile with pprof
+
+我们已经讨论了pprof可以测量什么，以及如何生成一个profile。下面我们来讨论如何使用pprof分析一个profile。
+
+这要使用`go pprof`命令。
+
+```bash
+go tool pprof /path/to/your/profile
+```
+
+这个工具提供了几种profiling数据的表现形式：文本，图形，火焰图。
+
+#### 2.5.1. Further reading
+
+- [Profiling Go programs](http://blog.golang.org/profiling-go-programs) (Go Blog)
+- [Debugging performance issues in Go programs](https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs)
+
+#### 2.5.2. CPU profiling (exercise)
+
+```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"unicode"
+)
+
+func readbyte(r io.Reader) (rune, error) {
+	var buf [1]byte
+	_, err := r.Read(buf[:])
+	return rune(buf[0]), err
+}
+
+func main() {
+	f, err := os.Open(os.Args[1])
+	if err != nil {
+		log.Fatalf("could not open file %q: %v", os.Args[1], err)
+	}
+
+	words := 0
+	inword := false
+	for {
+		r, err := readbyte(f)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("could not read file %q: %v", os.Args[1], err)
+		}
+		if unicode.IsSpace(r) && inword {
+			words++
+			inword = false
+		}
+		inword = unicode.IsLetter(r)
+	}
+	fmt.Printf("%q: %d words\n", os.Args[1], words)
+}
+
+```
+
+来数数Moby Dick小说中有多少个单词。
+
+```bash
+$ go build main.go && time ./main moby.txt
+"moby.txt": 181275 words
+./main moby.txt  0.43s user 0.56s system 77% cpu 1.285 total
+```
+
+和`wc -w`命令的结果对比一下。
+
+```bash
+$ time wc -w moby.txt
+  215829 moby.txt
+wc -w moby.txt  0.01s user 0.00s system 90% cpu 0.010 total
+```
+
+可见`wc`命令的结果要大19%左右，这是因为它判定单词的条件和我们的程序不一样。不过这不太重要。注意到`wc`要快上许多。
+
+#### 2.5.3. Add CPU profiling
+
+修改程序，开启profiling。
+
+```go
+import (
+        "github.com/pkg/profile"
+)
+
+func main() {
+        defer profile.Start().Stop()
+        // ...
+```
+
+> 译者注：在` profile.Start()`不传参数就是做CPU profiling。
+
+现在运行程序就会生成一个`cpu.pprof`文件。
+
+```bash
+$ go run main.go moby.txt
+2022/05/08 18:32:31 profile: cpu profiling enabled, /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile3565126161/cpu.pprof
+"moby.txt": 181275 words
+2022/05/08 18:32:32 profile: cpu profiling disabled, /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile3565126161/cpu.pprof
+```
+
+拿到pprof文件后，我们就可以用`go tool pprof`命令做分析了。
+
+```bash
+$ go tool pprof /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile3565126161/cpu.pprof
+Type: cpu
+Time: May 8, 2022 at 6:32pm (CST)
+Duration: 1.23s, Total samples = 690ms (56.30%)
+Entering interactive mode (type "help" for commands, "o" for options)
+(pprof) top
+Showing nodes accounting for 690ms, 100% of 690ms total
+Showing top 10 nodes out of 11
+      flat  flat%   sum%        cum   cum%
+     680ms 98.55% 98.55%      680ms 98.55%  syscall.syscall
+      10ms  1.45%   100%       10ms  1.45%  runtime.asmcgocall
+         0     0%   100%      680ms 98.55%  internal/poll.(*FD).Read
+         0     0%   100%      680ms 98.55%  internal/poll.ignoringEINTRIO (inline)
+         0     0%   100%      680ms 98.55%  main.main
+         0     0%   100%      680ms 98.55%  main.readbyte (inline)
+         0     0%   100%      680ms 98.55%  os.(*File).Read
+         0     0%   100%      680ms 98.55%  os.(*File).read (inline)
+         0     0%   100%      680ms 98.55%  runtime.main
+         0     0%   100%      680ms 98.55%  syscall.Read (inline)
+```
+
+`top`是最常用的命令。我们看到绝大部分时间都花在`syscall.syscall`上了。
+
+我们也可以用`web`命令可视化这些信息，这会生成一张有向图（svg格式）。里面用到了Graphviz的`dot`命令。
+
+我们也可以直接启动一个http服务来查看。
+
+```bash
+$ go tool pprof -http=:8080 /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile3565126161/cpu.pprof
+```
+
+在打开的网页上可以看到有向图和火焰图。
+
+![](https://raw.githubusercontent.com/chenlujjj/imagebed/main/img/20220508184503.png)
+
+![](https://raw.githubusercontent.com/chenlujjj/imagebed/main/img/20220508184528.png)
+
+从中再次确认了大部分时间是花费在syscall上的。
+
+#### 2.5.4. Improving our version
+
+我们的程序之所以慢，不是因为Go的`syscall.syscall`慢，而是因为一般来说syscall就是昂贵的操作。
+
+每个对`readbyte`的调用都会导致一次buffer大小为1的`syscall.Read`。所以程序执行syscall的次数和输入的大小相等。
+
+在输入和`readbyte`之间插入一个`bufio.Reader`。
+
+```go
+func main() {
+	f, err := os.Open(os.Args[1])
+	if err != nil {
+		log.Fatalf("could not open file %q: %v", os.Args[1], err)
+	}
+
+	b := bufio.NewReader(f)
+	words := 0
+	inword := false
+	for {
+		r, err := readbyte(b)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("could not read file %q: %v", os.Args[1], err)
+		}
+		if unicode.IsSpace(r) && inword {
+			words++
+			inword = false
+		}
+		inword = unicode.IsLetter(r)
+	}
+	fmt.Printf("%q: %d words\n", os.Args[1], words)
+}
+```
+
+这段程序的执行时间是：
+
+```bash
+$ go build main2.go && time ./main2 moby.txt
+"moby.txt": 181275 words
+./main2 moby.txt  0.02s user 0.00s system 23% cpu 0.111 total
+```
+
+比上一个版本快了不少。
+
+同样做一下CPU profiling：
+
+```bash
+$ go run main2.go moby.txt
+2022/05/08 19:04:02 profile: cpu profiling enabled, /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile2424648766/cpu.pprof
+"moby.txt": 181275 words
+2022/05/08 19:04:02 profile: cpu profiling disabled, /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile2424648766/cpu.pprof
+```
+
+结果如下：
+
+```bash
+$ go tool pprof /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile2424648766/cpu.pprof 
+Type: cpu
+Time: May 8, 2022 at 7:04pm (CST)
+Duration: 206.33ms, Total samples = 20ms ( 9.69%)
+Entering interactive mode (type "help" for commands, "o" for options)
+(pprof) top
+Showing nodes accounting for 20ms, 100% of 20ms total
+      flat  flat%   sum%        cum   cum%
+      20ms   100%   100%       20ms   100%  runtime.madvise
+         0     0%   100%       20ms   100%  runtime.(*mheap).alloc.func1
+         0     0%   100%       20ms   100%  runtime.(*mheap).allocSpan
+         0     0%   100%       20ms   100%  runtime.sysUsed (inline)
+         0     0%   100%       20ms   100%  runtime.systemstack
+```
+
+![](https://raw.githubusercontent.com/chenlujjj/imagebed/main/img/20220508190621.png)
+
+![image-20220508190715421](/Users/chenluxin/Library/Application Support/typora-user-images/image-20220508190715421.png)
+
+> 译注：我认为这里变快的原因是不需要一次又一次地读文件了，而是用`b := bufio.NewReader(f)`将文件一次性读入。
+
+#### 2.5.5. Memory profiling
+
+添加：
+
+```go
+defer profile.Start(profile.MemProfile).Stop()
+```
+
+执行程序：
+
+```bash
+$ go run main2.go moby.txt
+2022/05/08 19:08:50 profile: memory profiling enabled (rate 4096), /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile2817802689/mem.pprof
+"moby.txt": 181275 words
+2022/05/08 19:08:51 profile: memory profiling disabled, /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile2817802689/mem.pprof
+```
+
+查看pprof文件：
+
+```bash
+$ go tool pprof -http=:8080 /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile2817802689/mem.pprof
+```
+
+alloc_objects:
+
+![](https://raw.githubusercontent.com/chenlujjj/imagebed/main/img/20220508191444.png)
+
+可见绝大部分内存分配来自于`readbyte`函数，这也是预期内的。
+
+```go
+func readbyte(r io.Reader) (rune, error) {
+        var buf [1]byte   // 发生内存分配
+        _, err := r.Read(buf[:])
+        return rune(buf[0]), err
+}
+```
+
+每次对`readbyte`的调用都会分配一个字节长度的数组，这个数组会分配在堆上。
+
+> 有什么办法可以避免这个分配呢？
+
+一个常见的思路是复用该数组，作者给出了改良版的程序：
+
+```go
+// +build none
+
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"unicode"
+)
+
+type bytereader struct {
+	buf [1]byte
+	r   io.Reader
+}
+
+func (b *bytereader) next() (rune, error) {
+	_, err := b.r.Read(b.buf[:])
+	return rune(b.buf[0]), err
+}
+
+func main() {
+	f, err := os.Open(os.Args[1])
+	if err != nil {
+		log.Fatalf("could not open file %q: %v", os.Args[1], err)
+	}
+
+	br := bytereader{
+		r: bufio.NewReader(f),
+	}
+	words := 0
+	inword := false
+	for {
+		r, err := br.next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("could not read file %q: %v", os.Args[1], err)
+		}
+		if unicode.IsSpace(r) && inword {
+			words++
+			inword = false
+		}
+		inword = unicode.IsLetter(r)
+	}
+	fmt.Printf("%q: %d words\n", os.Args[1], words)
+}
+```
+
+新版程序的执行时间是：
+
+```bash
+$ time ./main3 moby.txt
+"moby.txt": 181275 words
+./main3 moby.txt  0.02s user 0.00s system 95% cpu 0.021 total
+```
+
+内存profiling结果，alloc_objects——
+
+![](https://raw.githubusercontent.com/chenlujjj/imagebed/main/img/20220508193228.png)
+
+数组的内存分配在图中已经不可见了。
+
+#### 2.5.6. Alloc objects vs. inuse objects
+
+内存profile有两种，根据`go tool pprof`后的flag来区分。
+
+* `-alloc_objects`报告了每个allocation的调用点
+* `-inuse_objects`报告了在profile结束时所有可触达（reachable）的allocation的调用点
+
+```go
+const count = 100000
+
+var y []byte
+
+func main() {
+	defer profile.Start(profile.MemProfile, profile.MemProfileRate(1)).Stop()
+	y = allocate()
+	runtime.GC()
+}
+
+// allocate allocates count byte slices and returns the first slice allocated.
+func allocate() []byte {
+	var x [][]byte
+	for i := 0; i < count; i++ {
+		x = append(x, makeByteSlice())
+	}
+	return x[0]
+}
+
+// makeByteSlice returns a byte slice of a random length in the range [0, 16384).
+func makeByteSlice() []byte {
+	return make([]byte, rand.Intn(2^14))
+}
+```
+
+我们设置了memory profile rate是1，也就是记录所有的allocation的栈追踪。
+
+```bash
+$ go run main.go
+2022/05/08 16:34:23 profile: memory profiling enabled (rate 1), /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile2716880970/mem.pprof
+2022/05/08 16:34:23 profile: memory profiling disabled, /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile2716880970/mem.pprof
+```
+
+我们来看一下分配对象（allocated objects）的图，这也是默认选项。这显示了在profile期间导致所有对象分配的调用图。
+
+```bash
+go tool pprof -http=:8080 /var/folders/6f/cgm11n_n6r1_960qs_vks9840000gn/T/profile2716880970/mem.pprof
+```
+
+打开 http://localhost:8080/ui/?si=alloc_objects 查看，可以看到99%以上的分配都发生在`makeByteSlice`函数里。
+
+![](https://raw.githubusercontent.com/chenlujjj/imagebed/main/img/20220508165119.png)
+
+我们再用`-inuse_objects`命令查看同一个profile文件。
+
+> 译者注：在新版的Go里，-inuse_objects和-alloc_objects都是不再使用的参数了。浏览器网页的SAMPLE下拉列表里可以选择。
+
+```bash
+$ go tool pprof --help
+...
+  Legacy convenience options:
+   -inuse_space           Same as -sample_index=inuse_space
+   -inuse_objects         Same as -sample_index=inuse_objects
+   -alloc_space           Same as -sample_index=alloc_space
+   -alloc_objects         Same as -sample_index=alloc_objects
+   -total_delay           Same as -sample_index=delay
+   -contentions           Same as -sample_index=contentions
+   -mean_delay            Same as -mean -sample_index=delay
+```
+
+![](https://raw.githubusercontent.com/chenlujjj/imagebed/main/img/20220508165037.png)
+
+网页 http://localhost:8080/ui/?si=inuse_objects 内容：
+
+![](https://raw.githubusercontent.com/chenlujjj/imagebed/main/img/20220508165405.png)
+
+我们看到的不是在profile期间分配（allocated）的对象，而是在profile时剩下来依旧使用（in use）的对象，这里忽略了被垃圾收集器回收的对象的栈追踪。
+
+> 译注：我还是不懂allocated和in use的的区别是啥？找了一些相关资料如下。
+
+在`runtime/pprof`包的[文档](https://pkg.go.dev/runtime/pprof)中有一段说明：
+
+> The heap profile tracks both the allocation sites for all live objects in the application memory and for all objects allocated since the program start. Pprof's -inuse_space, -inuse_objects, -alloc_space, and -alloc_objects flags select which to display, defaulting to -inuse_space (live objects, scaled by size).
+>
+> The allocs profile is the same as the heap profile but changes the default pprof display to -alloc_space, the total number of bytes allocated since the program began (including garbage-collected bytes).
+
+也有网友[总结](https://gist.github.com/slok/33dad1d0d0bae07977e6d32bcc010188)：
+
+> - `inuse_space`: Amount of memory allocated and not released yet (**Important**).
+> - `inuse_objects`: Amount of objects allocated and not released yet.
+> - `alloc_space`: Total amount of memory allocated (regardless of released).
+> - `alloc_objects`: Total amount of objects allocated (regardless of released).
+
+所以理解下来，两者的区别就是——inuse指的是在使用中的，还没被释放的；allocated指的是被分配的，不管有没有被释放都计算在内。
+
+#### 2.5.7. Block profiling
+
+我们要看的最后一种profile类型是block profiling。我们将使用`net/http`包中的 `ClientServer`基准测试。
+
+```bash
+$ go test -run=XXX -bench=ClientServer$ -blockprofile=/tmp/block.p net/http
+goos: darwin
+goarch: amd64
+pkg: net/http
+cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+BenchmarkClientServer-12    	   17996	     65250 ns/op	    5007 B/op	      59 allocs/op
+PASS
+ok  	net/http	2.888s
+$ go tool pprof -http=:8080 /tmp/block.p
+Serving web UI on http://localhost:8080
+```
+
+>  译注：这里先用`-blockprofile`命令生成block profile文件，然后用`go tool pprof`命令对生成的profile文件作展示。
+
+#### 2.5.8. Mutex profiling
+
+互斥锁争抢会随着goroutine的数量增加而增加。
+
+```go
+type AtomicVariable struct {
+	mu  sync.Mutex
+	val uint64
+}
+
+func (av *AtomicVariable) Inc() {
+	av.mu.Lock()
+	av.val++
+	av.mu.Unlock()
+}
+
+func BenchmarkInc(b *testing.B) {
+	var av AtomicVariable
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			av.Inc()
+		}
+	})
+}
+```
+
+基准测试结果：
+
+```bash
+$ go test -bench=. -cpu=1,2,4,8,16 .
+goos: darwin
+goarch: amd64
+cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+BenchmarkInc            91910521                12.88 ns/op
+BenchmarkInc-2          72791306                15.37 ns/op
+BenchmarkInc-4          33680726                33.66 ns/op
+BenchmarkInc-8          25016323                59.36 ns/op
+BenchmarkInc-16         22006458                71.41 ns/op
+PASS
+ok      _/Users/chenluxin/Codes/go/high-performance-go-workshop/examples/mutex  9.725s
+```
+
+#### 2.5.9. frame pointers
+
+Go 1.7 发布了amd64的新编译器，这个编译器默认开启了frame pointers（帧指针）。
+
+帧指针是一个寄存器，总是指向当前栈帧的顶部。
+
+帧指针使得像`gdb(1)`和`perf(1)`的工具能够理解Go的调用栈。
+
+我们不会继续讨论这些工具。你可以看我做过的关于profile Go程序的七种方法的演讲。
+
+- [Seven ways to profile a Go program](https://talks.godoc.org/github.com/davecheney/presentations/seven.slide) (slides)
+- [Seven ways to profile a Go program](https://www.youtube.com/watch?v=2h_NFBFrciI) (video, 30 mins)
+- [Seven ways to profile a Go program](https://www.bigmarker.com/remote-meetup-go/Seven-ways-to-profile-a-Go-program) (webcast, 60 mins)
+
+#### 2.5.10. Exercise
+
+略
+
+### 2.6. Discussion
+
+> There are only three optimizations: Do less. Do it less often. Do it faster.
+> The largest gains come from 1, but we spend all our time on 3.
+
+— [Michael Fromberger](https://twitter.com/creachadair/status/1039602865831010305)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
