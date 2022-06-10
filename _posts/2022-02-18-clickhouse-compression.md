@@ -8,15 +8,15 @@ tags: [ClickHouse]
 
 了解ClickHouse中的数据压缩有助于在配置、建表时选择恰当的压缩方法，减少数据占用的磁盘空间，节省资源。
 
-ClickHouse 支持两种通用数据压缩方法：
-* LZ4
+ClickHouse 支持两种**通用数据压缩方法**：
+* LZ4：默认压缩方法
 * ZSTD
 
-两者相比，LZ4更快，但是压缩比要小一些。[Compression in ClickHouse](https://altinitydb.medium.com/compression-in-clickhouse-81ea2049cc2)一文中提供了一份针对样本数据的测试报告。
+两者相比，LZ4 更快，但是压缩比要小一些。[Compression in ClickHouse](https://altinitydb.medium.com/compression-in-clickhouse-81ea2049cc2)一文中提供了一份针对样本数据的测试报告。
 
-因此，可以对不同用途的数据使用不同的压缩方式。比如，对于由小的parts组成的热数据使用LZ4压缩来提高查询速度，而对于合并成大parts的历史数据使用ZSTD压缩来降低磁盘占用。
+因此，可以对不同用途的数据使用不同的压缩方式。比如，对于由小的 parts 组成的热数据使用 LZ4 压缩来提高查询速度，而对于合并成大 parts 的历史数据使用 ZSTD 压缩来降低磁盘占用。
 
-对于MergeTree表引擎可以设置数据压缩方法：
+对于MergeTree表引擎可以针对不同大小的 part 设置相应的数据压缩方法：
 ```
 <compression>
     <case>
@@ -50,7 +50,7 @@ ENGINE = <Engine>
 ```
 注意最后一行的`CODEC(Delta, ZSTD)`，这表示CODEC可以由多个组合，就像管道一样使用。
 
-ClickHouse支持多种通用和特定用途的编解码器。
+ClickHouse 支持多种通用和特定用途的编解码器。
 
 通用编解码器有：
 * NONE：不压缩
@@ -67,7 +67,8 @@ ClickHouse支持多种通用和特定用途的编解码器。
 
 参考资料：
 * [ClickHouse文档：compression](https://clickhouse.com/docs/en/operations/server-configuration-parameters/settings/#server-settings-compression)
-
-* [ClickHouse文档：Column Compression Codecs](https://clickhouse.com/docs/en/sql-reference/statements/create/table/#codecs)
-* [LZ4压缩算法](https://github.com/lz4/lz4)
+* [ClickHouse文档：Column Compression Codecs](https://clickhouse.com/docs/en/sql-reference/statements/create/table/#column-compression-codecs)
+* [LZ4 压缩算法](https://github.com/lz4/lz4)
+* [ZSTD 压缩算法](https://facebook.github.io/zstd/)
 * [New Encodings to Improve ClickHouse Efficiency](https://altinity.com/blog/2019/7/new-encodings-to-improve-clickhouse) 比较了各种编码方式在不同数据集上的效果，可供参考。
+
