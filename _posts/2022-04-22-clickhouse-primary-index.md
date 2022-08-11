@@ -49,8 +49,10 @@ mark 文件的内容也是一个未压缩的平铺数组，这个数组长度就
 
 
 
-当查询需要对复合索引（compound key）中不是第一个索引的列做过滤时，ClickHouse使用 "generic exclusion search" 算法，它的查询效率和第一个索引的列的基数有关，该列相对过滤条件中的列基数更低时查询效率高。
+对于复合主键（compound primary key），列的顺序非常重要，影响着：（1）对主键中第二列做筛选的查询的效率；（2）表数据的压缩率。
+当查询需要对复合索引（compound key）中非第一列做过滤时，ClickHouse使用 "generic exclusion search" 算法，它的查询效率和主键索引中的第一列的基数有关，该列相对过滤条件中的列基数更低时查询效率高。
 （详见[Performance issues when filtering on key columns after the first](https://clickhouse.com/docs/en/guides/improving-query-performance/sparse-primary-indexes/#performance-issues-when-filtering-on-key-columns-after-the-first)）
+从数据压缩率角度考虑也是如此，当复合主键中的列按照基数从低到高排列时，可获得更高的压缩比。
 
 
 
