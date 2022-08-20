@@ -50,17 +50,18 @@ mark 文件的内容也是一个未压缩的平铺数组，这个数组长度就
 
 
 对于复合主键（compound primary key），列的顺序非常重要，影响着：（1）对主键中第二列做筛选的查询的效率；（2）表数据的压缩率。
-当查询需要对复合索引（compound key）中非第一列做过滤时，ClickHouse使用 "generic exclusion search" 算法，它的查询效率和主键索引中的第一列的基数有关，该列相对过滤条件中的列基数更低时查询效率高。
-（详见[Performance issues when filtering on key columns after the first](https://clickhouse.com/docs/en/guides/improving-query-performance/sparse-primary-indexes/#performance-issues-when-filtering-on-key-columns-after-the-first)）
+当查询需要对复合索引（compound key）中非第一列做过滤时，ClickHouse使用 ["generic exclusion search" 算法](https://clickhouse.com/docs/en/guides/improving-query-performance/sparse-primary-indexes/sparse-primary-indexes-multiple/#generic-exclusion-search-algorithm)，它的查询效率和主键索引中的第一列的基数有关，该列相对过滤条件中的列基数更低时查询效率高。
 从数据压缩率角度考虑也是如此，当复合主键中的列按照基数从低到高排列时，可获得更高的压缩比。
 
 
 
-使用多主键（multiple indexes）来加速查询的三种方法：
-1. 用不同的主键创建第二张表
-2. 在已存在的表上创建物化视图
+使用多主键（multiple primary indexes）来加速查询的三种方法：
+1. 用不同的主键创建第二张表（secondary table）
+2. 在已存在的表上创建物化视图（materialized view）
 3. 对已存在的表增加投影（projection）
 
-* 第一种方法，查询需要根据过滤条件指定用哪张表，插入数据时需要显式地插入到两张表中来保证数据的同步。
-* 第二种方法，附加的表是隐藏的，数据插入原表时会自动同步到隐藏表，但是查询时还是要指定用哪张表。
-* 第三种方法，读写对用户来说都是透明的，数据会自动同步，查询会自动选择合适的表。
+这三种方法都会将数据复制到一张额外的表中，来达到重新组织主键和行顺序的目的。它们的区别在于额外的表对用户查询和插入数据操作的透明程度。
+
+* 第一种方法，查询时需要根据过滤条件指定用哪张表，插入数据时需要显式地插入到两张表中来保证数据的同步。
+* 第二种方法，附加的表是隐式创建的，数据插入原表时会自动同步到隐藏表，但是查询时还是要指定用哪张表。
+* 第三种方法，读写对用户来说都是透明的，插入时数据会自动同步，查询时 ClickHouse 会自动选择合适的表。
